@@ -1,19 +1,36 @@
 const std = @import("std");
 
+const ResendEmailRequest = struct {
+    from: []const u8,
+    to: [][]const u8,
+    subject: []const u8,
+};
+
+// 	From        string            `json:"from"`
+// 	To          []string          `json:"to"`
+// 	Subject     string            `json:"subject"`
+// 	Bcc         []string          `json:"bcc,omitempty"`
+// 	Cc          []string          `json:"cc,omitempty"`
+// 	ReplyTo     string            `json:"reply_to,omitempty"`
+// 	Html        string            `json:"html,omitempty"`
+// 	Text        string            `json:"text,omitempty"`
+// 	Tags        []Tag             `json:"tags,omitempty"`
+// 	Attachments []*Attachment     `json:"attachments,omitempty"`
+// 	Headers     map[string]string `json:"headers,omitempty"`
+// 	ScheduledAt string            `json:"scheduled_at,omitempty"`
+// }
+
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    const json_content = "{\"from\":\"test@example.com\",\"to\":[\"test@example.com\"],\"subject\":\"Test email\"}";
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    const allocator = std.heap.page_allocator;
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    const parsed = try std.json.parseFromSlice(ResendEmailRequest, allocator, json_content, .{});
+    defer parsed.deinit();
 
-    try bw.flush(); // don't forget to flush!
+    const request = parsed.value;
+
+    std.debug.print("From: {s}, To: {s}, Subject: {s}\n", .{ request.from, request.to, request.subject });
 }
 
 test "simple test" {
