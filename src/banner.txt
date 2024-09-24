@@ -9,3 +9,4 @@
 Un-official mock server written in Zig! ⚡︎⚡︎⚡︎
 
 HTTP server listening on port 8900
+
