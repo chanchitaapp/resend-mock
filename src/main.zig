@@ -1,6 +1,7 @@
 const std = @import("std");
 const httpz = @import("httpz");
 const zlog = @import("zlog");
+const uuid = @import("uuid");
 
 const log = &zlog.json_logger;
 
@@ -24,34 +25,42 @@ pub fn main() !void {
     try server.listen();
 }
 
-var count: usize = 0;
+fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
+    const payload = req.json(resend_types.SendEmailRequest) catch |err| {
+        var event = try log.event(.debug);
+        try event.msgf("error deserializing payload: {}", .{err});
 
-fn sendEmail(_: *httpz.Request, res: *httpz.Response) !void {
-    count += 1;
+        res.status = 400;
+        return;
+    };
+
+    if (payload == null) {
+        var event = try log.event(.debug);
+        try event.msg("payload is empty");
+        res.status = 400;
+        return;
+    }
+
+    const allocator = std.heap.page_allocator;
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+
+    var string = std.ArrayList(u8).init(gpa.allocator());
+    defer string.deinit();
+
+    std.json.stringify(payload.?, .{}, string.writer()) catch |err| {
+        var event = try log.event(.err);
+        try event.msgf("error printing payload: {}", .{err});
+    };
 
     var event = try log.event(.debug);
-    try event.num("count", count);
-    try event.msg("hello!");
+    try event.str("payload", string.items);
+    try event.send();
+
+    const id = uuid.v4.new();
+    const id_str = try std.fmt.allocPrint(allocator, "{s}", .{uuid.urn.serialize(id)});
+    defer allocator.free(id_str);
 
     res.status = 200;
-    try res.json(.{ .id = "5", .name = "Teg" }, .{});
+    try res.json(.{ .id = id_str }, .{});
 }
-
-// const json_content = "{\"from\":\"test@example.com\",\"to\":[\"test@example.com\"],\"subject\":\"Test email\", \"cc\": 20}";
-
-// const allocator = std.heap.page_allocator;
-
-// const parse_options = std.json.ParseOptions{
-//     .ignore_unknown_fields = true,
-// };
-
-// const parsed = std.json.parseFromSlice(resend_types.SendEmailRequest, allocator, json_content, parse_options) catch |err| {
-//     std.debug.print("Error: {any}\n", .{err});
-//     return;
-// };
-
-// defer parsed.deinit();
-
-// const request = parsed.value;
-
-// std.debug.print("From: {s}, To: {s}, Subject: {s}, More... {any}\n", .{ request.from, request.to, request.subject, request.cc });

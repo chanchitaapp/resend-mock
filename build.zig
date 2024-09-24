@@ -46,8 +46,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const uuid = b.dependency("uuid", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     exe.root_module.addImport("zlog", zlog.module("zlog"));
     exe.root_module.addImport("httpz", httpz.module("httpz"));
+    exe.root_module.addImport("uuid", uuid.module("uuid"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

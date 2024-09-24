@@ -31,6 +31,10 @@
             .url = "git+https://github.com/chanchitaapp/zlog?ref=main#6293e226ac19ee966109e9927fdb73557b1597a1",
             .hash = "1220fb3018dbe9ba256716eef43664e993a861960d82f8e9dfb1f3b3c5cdac9f41d2",
         },
+        .uuid = .{
+            .url = "git+https://github.com/r4gus/uuid-zig?ref=master#e3d8c4a524b52dee777609b4404c0c234daaafd3",
+            .hash = "1220b4deeb4ec1ec3493ea934905356384561b725dba69d1fbf6a25cb398716dd05b",
+        },
     },
     .paths = .{
         "build.zig",
