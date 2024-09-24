@@ -103,3 +103,23 @@ pub const SendEmailRequest = struct {
         if (self.scheduled_at) |scheduled_at| allocator.free(scheduled_at);
     }
 };
+
+pub const Email = struct {
+    object: []const u8,
+    id: []const u8,
+    to: []const []const u8,
+    from: []const u8,
+    created_at: []const u8,
+    subject: ?[]const u8 = null,
+    html: ?[]const u8 = null,
+    text: ?[]const u8 = null,
+    bcc: ?[]const u8 = null,
+    cc: ?[]const u8 = null,
+    reply_to: EmailReplyTo,
+    last_event: ?[]const u8 = null,
+};
+
+const EmailReplyTo = union(enum) {
+    single: ?[]const u8,
+    multiple: ?[]const []const u8,
+};

@@ -4,16 +4,14 @@ const zlog = @import("zlog");
 const uuid = @import("uuid");
 const std = @import("std");
 
+const DateTime = @import("datetime").datetime.Datetime;
 const log = &zlog.json_logger;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-const StoredSendEmailRequest = struct {
-    id: []const u8,
-    payload: resend_types.SendEmailRequest,
-};
+const allocator = gpa.allocator();
 
-var sendEmailRequests = std.ArrayList(StoredSendEmailRequest).init(gpa.allocator());
+var storedEmails = std.ArrayList(*resend_types.Email).init(allocator);
 
 pub fn registerEndpoints(router: *httpz.Router(void, void)) void {
     router.post("/emails", sendEmail);
@@ -37,13 +35,13 @@ fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
     var event = try log.event(.debug);
     try event.msgf("getEmail: {s}", .{email_id.?});
 
-    const email_requests = sendEmailRequests.items;
+    const stored_emails = storedEmails.items;
 
-    for (email_requests) |email_request| {
-        if (std.mem.eql(u8, email_request.id, email_id.?)) {
+    for (stored_emails) |email| {
+        if (std.mem.eql(u8, email.id, email_id.?)) {
             res.status = 200;
             try res.json(.{
-                .email = email_request.payload,
+                .email = email,
             }, .{});
 
             return;
@@ -57,7 +55,15 @@ fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
 }
 
 fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
-    const payload = req.json(resend_types.SendEmailRequest) catch |err| {
+    const body = req.body() orelse "";
+    if (body.len == 0) {
+        var event = try log.event(.debug);
+        try event.msg("request body is empty");
+        res.status = 400;
+        return;
+    }
+
+    const parsed = std.json.parseFromSlice(resend_types.SendEmailRequest, allocator, body, .{}) catch |err| {
         var event = try log.event(.debug);
         try event.msgf("error deserializing payload: {}", .{err});
 
@@ -65,34 +71,34 @@ fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
         return;
     };
 
-    if (payload == null) {
-        var event = try log.event(.debug);
-        try event.msg("payload is empty");
-        res.status = 400;
-        return;
-    }
-
-    const allocator = gpa.allocator();
-
-    var string = std.ArrayList(u8).init(allocator);
-    defer string.deinit();
-
-    std.json.stringify(payload.?, .{}, string.writer()) catch |err| {
-        var event = try log.event(.err);
-        try event.msgf("error printing payload: {}", .{err});
-    };
+    const payload = parsed.value;
 
     var event = try log.event(.debug);
-    try event.str("payload", string.items);
+    try event.str("payload", body);
     try event.send();
 
     const id = uuid.v4.new();
     const id_str = try std.fmt.allocPrint(allocator, "{s}", .{uuid.urn.serialize(id)});
 
-    try sendEmailRequests.append(.{
+    const now = DateTime.now();
+    const created_at = try now.formatISO8601(allocator, true);
+
+    const email = try allocator.create(resend_types.Email);
+    email.* = .{
+        .object = "email",
         .id = id_str,
-        .payload = try payload.?.deepCopy(allocator),
-    });
+        .to = payload.to,
+        .from = payload.from,
+        .created_at = created_at,
+        .subject = payload.subject,
+        .html = payload.html,
+        .text = payload.text,
+        .bcc = payload.bcc,
+        .cc = payload.cc,
+        .reply_to = .{ .single = payload.reply_to },
+    };
+
+    try storedEmails.append(email);
 
     res.status = 200;
     try res.json(.{ .id = id_str }, .{});
