@@ -1,3 +1,4 @@
+const resend_types = @import("resend_types.zig");
 const std = @import("std");
 const httpz = @import("httpz");
 const zlog = @import("zlog");
@@ -5,11 +6,15 @@ const uuid = @import("uuid");
 
 const log = &zlog.json_logger;
 
-const resend_types = @import("resend_types.zig");
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
+    defer {
+        if (gpa.deinit() == .leak) {
+            std.log.err("Error deinitializing the allocator", .{});
+        }
+    }
 
     var server = try httpz.Server().init(allocator, .{ .port = 8900 });
     defer {
@@ -27,6 +32,13 @@ pub fn main() !void {
     try server.listen();
 }
 
+const StoredSendEmailRequest = struct {
+    id: []const u8,
+    payload: resend_types.SendEmailRequest,
+};
+
+var sendEmailRequests = std.ArrayList(StoredSendEmailRequest).init(gpa.allocator());
+
 fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
     const payload = req.json(resend_types.SendEmailRequest) catch |err| {
         var event = try log.event(.debug);
@@ -43,11 +55,9 @@ fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
         return;
     }
 
-    const allocator = std.heap.page_allocator;
+    const allocator = gpa.allocator();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-    var string = std.ArrayList(u8).init(gpa.allocator());
+    var string = std.ArrayList(u8).init(allocator);
     defer string.deinit();
 
     std.json.stringify(payload.?, .{}, string.writer()) catch |err| {
@@ -61,7 +71,11 @@ fn sendEmail(req: *httpz.Request, res: *httpz.Response) !void {
 
     const id = uuid.v4.new();
     const id_str = try std.fmt.allocPrint(allocator, "{s}", .{uuid.urn.serialize(id)});
-    defer allocator.free(id_str);
+
+    try sendEmailRequests.append(.{
+        .id = id_str,
+        .payload = try payload.?.deepCopy(allocator),
+    });
 
     res.status = 200;
     try res.json(.{ .id = id_str }, .{});
