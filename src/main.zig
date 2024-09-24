@@ -24,7 +24,7 @@ pub fn main() !void {
 
     var router = server.router();
     router.post("/emails", sendEmail);
-    router.get("/emails/:email", getEmail);
+    router.get("/emails/:email_id", getEmail);
 
     const banner = @embedFile("banner.txt");
 
@@ -41,8 +41,8 @@ const StoredSendEmailRequest = struct {
 var sendEmailRequests = std.ArrayList(StoredSendEmailRequest).init(gpa.allocator());
 
 fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
-    const email = req.param("email");
-    if (email == null) {
+    const email_id = req.param("email_id");
+    if (email_id == null) {
         res.status = 400;
         try res.json(.{
             .message = "email is required",
@@ -52,12 +52,24 @@ fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
     }
 
     var event = try log.event(.debug);
-    try event.msgf("getEmail: {s}", .{email.?});
+    try event.msgf("getEmail: {s}", .{email_id.?});
 
-    res.status = 200;
+    const email_requests = sendEmailRequests.items;
 
+    for (email_requests) |email_request| {
+        if (std.mem.eql(u8, email_request.id, email_id.?)) {
+            res.status = 200;
+            try res.json(.{
+                .email = email_request.payload,
+            }, .{});
+
+            return;
+        }
+    }
+
+    res.status = 404;
     try res.json(.{
-        .email = email,
+        .message = "email not found",
     }, .{});
 }
 
