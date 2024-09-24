@@ -20,7 +20,7 @@ pub fn main() !void {
     var router = server.router();
     router.post("/emails", sendEmail);
 
-    std.log.debug("Starting server on port 8900", .{});
+    _ = try std.io.getStdOut().write("                              _ \n _ __ ___  ___  ___ _ __   __| |\n| '__/ _ \\/ __|/ _ \\ '_ \\ / _` |\n| | |  __/\\__ \\  __/ | | | (_| |\n|_|  \\___||___/\\___|_| |_|\\__,_|\n                                \n\nUn-official mock server written in Zig! ⚡︎⚡︎⚡︎\n\nHTTP server listening on port 8900\n");
 
     try server.listen();
 }
