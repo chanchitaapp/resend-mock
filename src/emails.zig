@@ -22,8 +22,8 @@ pub fn registerEndpoints(router: *httpz.Router(void, void)) void {
 fn modifyEmail(_: *httpz.Request, _: *httpz.Response) !void {}
 
 fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
-    const email_id = req.param("email_id");
-    if (email_id == null) {
+    const email_id = req.param("email_id") orelse "";
+    if (std.mem.eql(u8, email_id, "")) {
         res.status = 400;
         try res.json(.{
             .message = "email is required",
@@ -33,12 +33,12 @@ fn getEmail(req: *httpz.Request, res: *httpz.Response) !void {
     }
 
     var event = try log.event(.debug);
-    try event.msgf("getEmail: {s}", .{email_id.?});
+    try event.msgf("getEmail: {s}", .{email_id});
 
     const stored_emails = storedEmails.items;
 
     for (stored_emails) |email| {
-        if (std.mem.eql(u8, email.id, email_id.?)) {
+        if (std.mem.eql(u8, email.id, email_id)) {
             res.status = 200;
             try res.json(.{
                 .email = email,
