@@ -41,6 +41,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zlog = b.dependency("zlog", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe.root_module.addImport("zlog", zlog.module("zlog"));
     exe.root_module.addImport("httpz", httpz.module("httpz"));
 
     // This declares intent for the executable to be installed into the

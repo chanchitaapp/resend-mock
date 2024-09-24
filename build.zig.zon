@@ -27,6 +27,10 @@
             .url = "git+https://github.com/karlseguin/http.zig?ref=zig-0.13#7d2ddae87af9b110783085c0ea6b03985faa4584",
             .hash = "12208c1f2c5f730c4c03aabeb0632ade7e21914af03e6510311b449458198d0835d6",
         },
+        .zlog = .{
+            .url = "git+https://github.com/chanchitaapp/zlog?ref=main#6293e226ac19ee966109e9927fdb73557b1597a1",
+            .hash = "1220fb3018dbe9ba256716eef43664e993a861960d82f8e9dfb1f3b3c5cdac9f41d2",
+        },
     },
     .paths = .{
         "build.zig",
